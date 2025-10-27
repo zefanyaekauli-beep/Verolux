@@ -1,0 +1,84 @@
+# Verolux Analytics System - Dockerfile
+# Comprehensive analytics: traffic flow, behavior, heatmaps, anomaly detection
+FROM python:3.10-slim
+
+LABEL maintainer="Verolux Enterprise"
+LABEL description="Analytics system for traffic flow, behavior analysis, and heatmaps"
+
+# Set environment
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY Backend/requirements.txt .
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Install additional analytics libraries
+RUN pip3 install --no-cache-dir \
+    pandas \
+    numpy \
+    scipy \
+    scikit-learn \
+    matplotlib \
+    seaborn \
+    plotly \
+    google-cloud-storage \
+    google-cloud-sql-connector \
+    psycopg2-binary \
+    sqlalchemy
+
+# Copy application code
+COPY Backend/analytics_system.py .
+COPY Backend/gate_database.py .
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/reports /app/logs
+
+# Set permissions
+RUN chmod +x /app/*.py
+
+# Expose port
+EXPOSE 8002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8002/health || exit 1
+
+# Start application
+CMD ["python3", "-m", "uvicorn", "analytics_system:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8002", \
+     "--workers", "1"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

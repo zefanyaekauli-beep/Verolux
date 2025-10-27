@@ -1,0 +1,84 @@
+# Verolux Semantic Search - Dockerfile
+# FAISS + CLIP video search engine
+FROM python:3.10-slim
+
+LABEL maintainer="Verolux Enterprise"
+LABEL description="Semantic search with FAISS and CLIP embeddings"
+
+# Set environment
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    curl \
+    ca-certificates \
+    libopenblas-dev \
+    liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY Backend/requirements.txt .
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Install semantic search specific libraries
+RUN pip3 install --no-cache-dir \
+    sentence-transformers \
+    transformers \
+    faiss-cpu \
+    clip-by-openai \
+    pillow \
+    google-cloud-storage \
+    google-cloud-sql-connector \
+    psycopg2-binary \
+    sqlalchemy
+
+# Copy application code
+COPY Backend/semantic_search.py .
+
+# Create necessary directories
+RUN mkdir -p /app/embeddings /app/index /app/logs
+
+# Set permissions
+RUN chmod +x /app/*.py
+
+# Expose port
+EXPOSE 8003
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8003/health || exit 1
+
+# Start application
+CMD ["python3", "-m", "uvicorn", "semantic_search:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8003", \
+     "--workers", "1", \
+     "--timeout-keep-alive", "300"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,83 @@
+# Hardened Backend Dockerfile
+# Security features: non-root user, minimal base, read-only filesystem
+
+FROM python:3.10-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user (non-root)
+RUN groupadd -r verolux && useradd -r -g verolux verolux
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# ================================
+# Final stage - minimal and secure
+# ================================
+FROM python:3.10-slim
+
+# Install minimal runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user
+RUN groupadd -r verolux --gid=1000 && \
+    useradd -r -g verolux --uid=1000 --no-log-init verolux && \
+    mkdir -p /app /app/uploads /app/models /app/config /app/logs && \
+    chown -R verolux:verolux /app
+
+# Copy Python dependencies from builder
+COPY --from=builder --chown=verolux:verolux /root/.local /home/verolux/.local
+
+# Set up PATH
+ENV PATH=/home/verolux/.local/bin:$PATH
+
+WORKDIR /app
+
+# Copy application code
+COPY --chown=verolux:verolux . .
+
+# Create necessary writable directories
+RUN mkdir -p /app/tmp && chown verolux:verolux /app/tmp
+
+# Security: Drop all capabilities except NET_BIND_SERVICE
+# (needed to bind to ports < 1024)
+USER verolux
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health', timeout=5)"
+
+# Run application
+CMD ["python", "backend_server.py"]
+
+# Security labels
+LABEL security.non-root="true" \
+      security.read-only-root="supported" \
+      security.capabilities="NET_BIND_SERVICE" \
+      org.opencontainers.image.source="https://github.com/your-org/verolux" \
+      org.opencontainers.image.description="Verolux AI Surveillance Backend - Hardened" \
+      org.opencontainers.image.licenses="Commercial"
+
+
+

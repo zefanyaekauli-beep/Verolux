@@ -1,0 +1,16 @@
+{
+  "incident_id": "INC-20250929-001",
+  "tanggal_waktu": "2025-09-29 08:15 WIB",
+  "lokasi": "Loading Dock - Kamera 2",
+  "jenis_pelanggaran": "Intrusi",
+  "severity": "Tinggi",
+  "durasi": "45 detik",
+  "jumlah_objek": "1 orang",
+  "deskripsi": "Seorang individu memasuki area Loading Dock - Kamera 2 tanpa otorisasi melalui pintu samping",
+  "status": "Selesai",
+  "petugas": "Andi (Security Shift A)",
+  "tindakan": "Pemeriksaan keamanan berhasil diselesaikan sesuai prosedur.",
+  "catatan": "Tidak ada kerugian material, insiden dilaporkan ke supervisor.",
+  "screenshot_path": null,
+  "generated_at": "2025-10-08T03:38:30.570596"
+}

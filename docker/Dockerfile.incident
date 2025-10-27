@@ -1,0 +1,48 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --upgrade \
+    fastapi uvicorn gunicorn numpy websockets \
+    opencv-python-headless yt-dlp ultralytics \
+    torch transformers sentence-transformers \
+    scikit-learn pydantic shapely scipy pandas filterpy \
+    celery redis amqp kombu flower \
+    psycopg2-binary sqlalchemy alembic \
+    minio boto3 qdrant-client \
+    prometheus-client opentelemetry-api opentelemetry-sdk \
+    opentelemetry-instrumentation-fastapi psutil \
+    google-cloud-storage google-cloud-logging google-cloud-monitoring \
+    reportlab python-docx
+
+# Copy application code
+COPY . .
+
+# Create reports directory
+RUN mkdir -p incident_reports
+
+# Expose port
+EXPOSE 8004
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8004/health')" || exit 1
+
+# Run incident report generator
+CMD ["python", "incident_report_generator.py"]
+
+
+
+
+

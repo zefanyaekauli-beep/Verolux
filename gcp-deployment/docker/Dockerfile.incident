@@ -1,0 +1,86 @@
+# Verolux Incident Report Generator - Dockerfile
+# Multi-language incident reporting (EN/ID/ZH)
+FROM python:3.10-slim
+
+LABEL maintainer="Verolux Enterprise"
+LABEL description="Incident report generator with multi-language support"
+
+# Set environment
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies for PDF generation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    curl \
+    ca-certificates \
+    wkhtmltopdf \
+    xvfb \
+    fonts-liberation \
+    fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY Backend/requirements.txt .
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Install additional PDF generation libraries
+RUN pip3 install --no-cache-dir \
+    reportlab \
+    weasyprint \
+    jinja2 \
+    pillow \
+    google-cloud-storage \
+    google-cloud-sql-connector \
+    psycopg2-binary \
+    sqlalchemy
+
+# Copy application code
+COPY Backend/incident_report_generator.py .
+COPY Backend/language_templates.py .
+COPY Backend/gate_database.py .
+
+# Create necessary directories
+RUN mkdir -p /app/incident_reports /app/templates /app/logs
+
+# Set permissions
+RUN chmod +x /app/*.py
+
+# Expose port
+EXPOSE 8004
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8004/health || exit 1
+
+# Start application
+CMD ["python3", "-m", "uvicorn", "incident_report_generator:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8004", \
+     "--workers", "1"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

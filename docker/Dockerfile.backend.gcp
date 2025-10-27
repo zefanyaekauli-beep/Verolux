@@ -1,0 +1,56 @@
+FROM python:3.10-slim
+
+# Install system dependencies (CPU-only for GCP)
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install PyTorch CPU version and other dependencies
+RUN pip install --no-cache-dir \
+    torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install GCP libraries
+RUN pip install --no-cache-dir \
+    google-cloud-storage \
+    google-cloud-logging \
+    google-cloud-monitoring \
+    google-cloud-sql-python-connector
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p uploads models config snapshots incident_reports credentials
+
+# Set environment for CPU
+ENV DEVICE=cpu
+ENV PYTHONUNBUFFERED=1
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD python3 -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+
+# Run with gunicorn for production
+CMD ["gunicorn", "backend_server:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "300"]
+
+
+
+
+

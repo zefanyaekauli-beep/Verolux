@@ -1,0 +1,125 @@
+# Blue/Green Deployment Configuration for Kubernetes
+# Enables zero-downtime deployments with instant rollback
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: verolux-backend
+  namespace: verolux
+  labels:
+    app: verolux-backend
+spec:
+  selector:
+    app: verolux-backend
+    version: active  # Points to active deployment (blue or green)
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+  type: ClusterIP
+
+---
+# Blue Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-backend-blue
+  namespace: verolux
+  labels:
+    app: verolux-backend
+    version: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: verolux-backend
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: verolux-backend
+        version: blue
+        deployment-type: blue
+    spec:
+      containers:
+      - name: backend
+        image: gcr.io/PROJECT_ID/verolux-backend:BLUE_TAG
+        ports:
+        - containerPort: 8000
+        - containerPort: 9090
+        env:
+        - name: DEPLOYMENT_COLOR
+          value: "blue"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+# Green Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-backend-green
+  namespace: verolux
+  labels:
+    app: verolux-backend
+    version: green
+spec:
+  replicas: 0  # Starts inactive
+  selector:
+    matchLabels:
+      app: verolux-backend
+      version: green
+  template:
+    metadata:
+      labels:
+        app: verolux-backend
+        version: green
+        deployment-type: green
+    spec:
+      containers:
+      - name: backend
+        image: gcr.io/PROJECT_ID/verolux-backend:GREEN_TAG
+        ports:
+        - containerPort: 8000
+        - containerPort: 9090
+        env:
+        - name: DEPLOYMENT_COLOR
+          value: "green"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+
+
+
+
+
+
+
+
+
+
+
+

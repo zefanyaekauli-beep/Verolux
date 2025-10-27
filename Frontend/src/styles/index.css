@@ -1,0 +1,209 @@
+@import './brand.css';
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--verolux-background);
+  color: var(--verolux-text-primary);
+  font-family: var(--verolux-font-family);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+a {
+  color: var(--verolux-text-accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--verolux-secondary);
+}
+
+input, select, button {
+  background: rgba(17, 17, 17, 0.8);
+  color: var(--verolux-text-primary);
+  border: 1px solid rgba(76, 212, 176, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: var(--verolux-font-family);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--verolux-secondary);
+  box-shadow: 0 0 0 3px rgba(76, 212, 176, 0.2);
+}
+
+button {
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.card {
+  background: linear-gradient(135deg, #111111 0%, #222222 100%);
+  border: 1px solid rgba(76, 212, 176, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+  border-color: rgba(76, 212, 176, 0.4);
+}
+
+.grid {
+  display: grid;
+  gap: 20px;
+}
+
+.badge {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid rgba(76, 212, 176, 0.3);
+  border-radius: 8px;
+  background: rgba(76, 212, 176, 0.1);
+  color: var(--verolux-text-accent);
+  font-weight: 500;
+}
+
+.flex {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--verolux-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--verolux-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--verolux-accent);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(76, 212, 176, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(76, 212, 176, 0.6);
+  }
+}
+
+/* Utility classes */
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.glow {
+  animation: glow 2s infinite;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+  
+  .card {
+    padding: 16px;
+  }
+  
+  .flex {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Video feed specific styles */
+.video-feed-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.video-feed-container.compact {
+  max-width: 400px;
+}
+
+/* Status indicators */
+.status-connected {
+  color: var(--verolux-success);
+}
+
+.status-connecting {
+  color: var(--verolux-warning);
+}
+
+.status-error {
+  color: var(--verolux-error);
+}
+
+.status-disconnected {
+  color: var(--verolux-text-secondary);
+}

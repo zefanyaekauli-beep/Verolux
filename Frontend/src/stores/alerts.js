@@ -1,0 +1,2 @@
+import { create } from 'zustand'
+export default create((set,get)=>({active:[], rules:[{type:'presence',cls:'person',minConf:0.5}], eval:(payload)=>{const ds=payload.detections||[]; const ts=payload.ts||Date.now()/1000; const hits=[]; get().rules.forEach(r=>{if(r.type==='presence' && ds.some(d=>d.cls===r.cls && d.conf>=r.minConf)){hits.push({type:'presence',message:`${r.cls} detected`,ts})}}); if(hits.length) set(s=>({active:[...hits,...s.active].slice(0,150)}))}}))

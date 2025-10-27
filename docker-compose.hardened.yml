@@ -1,0 +1,252 @@
+version: '3.8'
+
+# Hardened Docker Compose Configuration
+# Security features: non-root, read-only FS, seccomp, capabilities dropped
+
+services:
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.backend.hardened
+    image: verolux-backend:hardened
+    container_name: verolux-backend-hardened
+    
+    # Security: Run as non-root user
+    user: "1000:1000"
+    
+    # Security: Read-only root filesystem
+    read_only: true
+    
+    # Security: Temporary directories (writable)
+    tmpfs:
+      - /tmp
+      - /app/tmp
+    
+    volumes:
+      # Mount writable directories
+      - ./Backend/uploads:/app/uploads
+      - ./Backend/models:/app/models
+      - ./Backend/logs:/app/logs
+      - ./Backend/config:/app/config:ro  # Read-only config
+    
+    # Security: Drop all capabilities, add only needed ones
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    
+    # Security: Additional security options
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=default
+      - apparmor=docker-default
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    ports:
+      - "8000:8000"
+    
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - POSTGRES_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/verolux
+      - DEVICE=cuda
+      - BATCH_SIZE=4
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    
+    networks:
+      - verolux-internal
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=backend,environment=production"
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    image: verolux-frontend:hardened
+    container_name: verolux-frontend-hardened
+    
+    # Security: Non-root
+    user: "nginx"
+    
+    # Security: Read-only
+    read_only: true
+    
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETGID
+      - SETUID
+    
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=default
+    
+    ports:
+      - "5173:5173"
+    
+    environment:
+      - VITE_API_URL=http://backend:8000
+    
+    networks:
+      - verolux-internal
+    
+    depends_on:
+      - backend
+    
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: verolux-postgres-hardened
+    
+    # Security
+    user: postgres
+    read_only: true
+    
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+      - FOWNER
+      - SETGID
+      - SETUID
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    environment:
+      - POSTGRES_DB=verolux
+      - POSTGRES_USER=${DB_USER:-verolux}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    
+    networks:
+      - verolux-internal
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-verolux}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: verolux-redis-hardened
+    
+    # Security
+    user: redis
+    read_only: true
+    
+    tmpfs:
+      - /tmp
+    
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+    
+    volumes:
+      - redis-data:/data
+    
+    networks:
+      - verolux-internal
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    
+    restart: unless-stopped
+
+networks:
+  verolux-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: verolux-br0
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+# Security scanning hook
+# Run: docker scan verolux-backend:hardened
+# Run: trivy image verolux-backend:hardened
+
+
+
+
+
+
+
+
+
+
+
+
+

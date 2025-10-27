@@ -1,0 +1,242 @@
+version: '3.8'
+
+services:
+  # Backend - Main API Server with Gate Security (GCP Optimized)
+  backend:
+    image: gcr.io/${GCP_PROJECT_ID}/verolux-backend:${VERSION:-latest}
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.backend.gcp
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: verolux-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - gcp-models:/app/models
+      - gcp-config:/app/config
+      - gcp-uploads:/app/uploads
+    environment:
+      - MODEL_PATH=/app/models/weight.pt
+      - DEVICE=cpu
+      - PYTHONUNBUFFERED=1
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcp-key.json
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+      - REDIS_URL=redis://${REDIS_HOST}:6379
+      - STORAGE_BUCKET=${GCS_BUCKET}
+    secrets:
+      - gcp-credentials
+    depends_on:
+      - cloud-sql-proxy
+      - redis
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+    logging:
+      driver: "gcplogs"
+      options:
+        gcp-project: ${GCP_PROJECT_ID}
+        gcp-log-cmd: "true"
+
+  # Analytics System (GCP)
+  analytics:
+    image: gcr.io/${GCP_PROJECT_ID}/verolux-analytics:${VERSION:-latest}
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.analytics.gcp
+    container_name: verolux-analytics
+    ports:
+      - "8002:8002"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+      - REDIS_URL=redis://${REDIS_HOST}:6379
+    depends_on:
+      - cloud-sql-proxy
+      - redis
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+    logging:
+      driver: "gcplogs"
+
+  # Reporting System (GCP)
+  reporting:
+    image: gcr.io/${GCP_PROJECT_ID}/verolux-reporting:${VERSION:-latest}
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.reporting.gcp
+    container_name: verolux-reporting
+    ports:
+      - "8001:8001"
+    volumes:
+      - gcp-reports:/app/incident_reports
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+      - STORAGE_BUCKET=${GCS_BUCKET}
+    depends_on:
+      - cloud-sql-proxy
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+    logging:
+      driver: "gcplogs"
+
+  # Semantic Search (GCP)
+  semantic:
+    image: gcr.io/${GCP_PROJECT_ID}/verolux-semantic:${VERSION:-latest}
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.semantic.gcp
+    container_name: verolux-semantic
+    ports:
+      - "8003:8003"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+    depends_on:
+      - cloud-sql-proxy
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+    logging:
+      driver: "gcplogs"
+
+  # Incident Reports (GCP)
+  incident:
+    image: gcr.io/${GCP_PROJECT_ID}/verolux-incident:${VERSION:-latest}
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.incident.gcp
+    container_name: verolux-incident
+    ports:
+      - "8004:8004"
+    volumes:
+      - gcp-reports:/app/incident_reports
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+      - STORAGE_BUCKET=${GCS_BUCKET}
+    depends_on:
+      - cloud-sql-proxy
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+    logging:
+      driver: "gcplogs"
+
+  # Configuration API (GCP)
+  config-api:
+    image: gcr.io/${GCP_PROJECT_ID}/verolux-config:${VERSION:-latest}
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.config.gcp
+    container_name: verolux-config
+    ports:
+      - "8005:8005"
+    volumes:
+      - gcp-config:/app/config
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - STORAGE_BUCKET=${GCS_BUCKET}
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+    logging:
+      driver: "gcplogs"
+
+  # Frontend (GCP)
+  frontend:
+    image: gcr.io/${GCP_PROJECT_ID}/verolux-frontend:${VERSION:-latest}
+    build:
+      context: ./Frontend
+      dockerfile: ../docker/Dockerfile.frontend.gcp
+    container_name: verolux-frontend
+    ports:
+      - "8080:8080"
+    environment:
+      - VITE_API_URL=https://${DOMAIN}/api
+      - VITE_ANALYTICS_URL=https://${DOMAIN}/analytics
+      - VITE_REPORTING_URL=https://${DOMAIN}/reports
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+    logging:
+      driver: "gcplogs"
+
+  # Cloud SQL Proxy
+  cloud-sql-proxy:
+    image: gcr.io/cloudsql-docker/gce-proxy:latest
+    container_name: cloud-sql-proxy
+    command:
+      - "/cloud_sql_proxy"
+      - "-instances=${GCP_PROJECT_ID}:${GCP_REGION}:${CLOUD_SQL_INSTANCE}=tcp:0.0.0.0:5432"
+      - "-credential_file=/secrets/gcp-key.json"
+    ports:
+      - "5432:5432"
+    volumes:
+      - gcp-credentials:/secrets
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+
+  # Redis (Memorystore alternative for local dev)
+  redis:
+    image: redis:7-alpine
+    container_name: verolux-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+
+  # Nginx Load Balancer (GCP)
+  nginx:
+    image: gcr.io/${GCP_PROJECT_ID}/verolux-nginx:${VERSION:-latest}
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.nginx.gcp
+    container_name: verolux-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx-gcp.conf:/etc/nginx/nginx.conf:ro
+      - gcp-ssl:/etc/nginx/ssl:ro
+    environment:
+      - DOMAIN=${DOMAIN}
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - verolux-gcp-network
+    restart: unless-stopped
+    logging:
+      driver: "gcplogs"
+
+networks:
+  verolux-gcp-network:
+    driver: bridge
+
+volumes:
+  gcp-models:
+  gcp-config:
+  gcp-uploads:
+  gcp-reports:
+  gcp-credentials:
+  gcp-ssl:
+
+secrets:
+  gcp-credentials:
+    file: ./gcp-credentials.json

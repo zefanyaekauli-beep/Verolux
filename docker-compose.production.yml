@@ -1,0 +1,710 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # CORE APPLICATION SERVICES
+  # ============================================
+  
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.backend
+    image: verolux-backend:latest
+    container_name: verolux-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://:verolux123@redis:6379
+      - RABBITMQ_URL=amqp://verolux:verolux123@rabbitmq:5672
+      - POSTGRES_URL=postgresql://verolux:verolux123@postgres:5432/verolux
+      - MINIO_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=verolux
+      - MINIO_SECRET_KEY=verolux123456
+      - QDRANT_URL=http://qdrant:6333
+      - TRITON_URL=triton:9800
+      - RTSP_SERVER=rtsp://mediamtx:8554
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    volumes:
+      - ./Backend:/app
+      - minio-models:/app/models
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - minio
+      - qdrant
+    networks:
+      - verolux-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    image: verolux-frontend:latest
+    container_name: verolux-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://backend:8000
+      - VITE_ANALYTICS_URL=http://analytics:8002
+    depends_on:
+      - backend
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  analytics:
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.analytics
+    image: verolux-analytics:latest
+    container_name: verolux-analytics
+    ports:
+      - "8002:8002"
+    environment:
+      - POSTGRES_URL=postgresql://verolux:verolux123@postgres:5432/verolux
+      - REDIS_URL=redis://:verolux123@redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  reporting:
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.reporting
+    image: verolux-reporting:latest
+    container_name: verolux-reporting
+    ports:
+      - "8001:8001"
+    environment:
+      - POSTGRES_URL=postgresql://verolux:verolux123@postgres:5432/verolux
+      - MINIO_URL=http://minio:9000
+      - RABBITMQ_URL=amqp://verolux:verolux123@rabbitmq:5672
+    depends_on:
+      - postgres
+      - minio
+      - rabbitmq
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  semantic:
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.semantic
+    image: verolux-semantic:latest
+    container_name: verolux-semantic
+    ports:
+      - "8003:8003"
+    environment:
+      - POSTGRES_URL=postgresql://verolux:verolux123@postgres:5432/verolux
+      - QDRANT_URL=http://qdrant:6333
+    depends_on:
+      - postgres
+      - qdrant
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  incident:
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.incident
+    image: verolux-incident:latest
+    container_name: verolux-incident
+    ports:
+      - "8004:8004"
+    environment:
+      - POSTGRES_URL=postgresql://verolux:verolux123@postgres:5432/verolux
+      - MINIO_URL=http://minio:9000
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  config-api:
+    build:
+      context: ./Backend
+      dockerfile: ../docker/Dockerfile.config
+    image: verolux-config:latest
+    container_name: verolux-config
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./Backend/config:/app/config
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # MESSAGE BROKER & JOB QUEUE
+  # ============================================
+  
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: verolux-rabbitmq
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=verolux
+      - RABBITMQ_DEFAULT_PASS=verolux123
+      - RABBITMQ_VM_MEMORY_HIGH_WATERMARK=512MB
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - verolux-net
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ============================================
+  # TASK WORKERS (Celery)
+  # ============================================
+  
+  celery-worker:
+    image: verolux-backend:latest
+    command: celery -A backend.celery_app worker --loglevel=info -Q default,heavy,reports --concurrency=4
+    environment:
+      - REDIS_URL=redis://:verolux123@redis:6379
+      - RABBITMQ_URL=amqp://verolux:verolux123@rabbitmq:5672
+      - POSTGRES_URL=postgresql://verolux:verolux123@postgres:5432/verolux
+      - MINIO_URL=http://minio:9000
+    depends_on:
+      - redis
+      - rabbitmq
+      - postgres
+    networks:
+      - verolux-net
+    deploy:
+      replicas: 2
+    restart: unless-stopped
+
+  celery-beat:
+    image: verolux-backend:latest
+    command: celery -A backend.celery_app beat --loglevel=info
+    environment:
+      - REDIS_URL=redis://:verolux123@redis:6379
+      - RABBITMQ_URL=amqp://verolux:verolux123@rabbitmq:5672
+    depends_on:
+      - redis
+      - rabbitmq
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  celery-flower:
+    image: mher/flower:latest
+    container_name: verolux-flower
+    command: celery --broker=amqp://verolux:verolux123@rabbitmq:5672 flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=amqp://verolux:verolux123@rabbitmq:5672
+      - FLOWER_PORT=5555
+    depends_on:
+      - rabbitmq
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # VECTOR DATABASE (Qdrant)
+  # ============================================
+  
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: verolux-qdrant
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__LOG_LEVEL=INFO
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # OBJECT STORAGE (MinIO - S3 Compatible)
+  # ============================================
+  
+  minio:
+    image: minio/minio:latest
+    container_name: verolux-minio
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Console
+    environment:
+      - MINIO_ROOT_USER=verolux
+      - MINIO_ROOT_PASSWORD=verolux123456
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - verolux-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # MinIO client for bucket creation
+  minio-client:
+    image: minio/mc:latest
+    container_name: verolux-minio-client
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      mc alias set verolux http://minio:9000 verolux verolux123456;
+      mc mb verolux/models || true;
+      mc mb verolux/uploads || true;
+      mc mb verolux/reports || true;
+      mc mb verolux/videos || true;
+      mc mb verolux/snapshots || true;
+      mc policy set public verolux/uploads;
+      echo 'MinIO buckets created successfully';
+      exit 0;
+      "
+    networks:
+      - verolux-net
+
+  # ============================================
+  # MEDIA SERVER (MediaMTX)
+  # ============================================
+  
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: verolux-mediamtx
+    ports:
+      - "8554:8554"      # RTSP
+      - "1935:1935"      # RTMP
+      - "8888:8888"      # HLS
+      - "8889:8889"      # WebRTC
+      - "8890:8890/udp"  # WebRTC UDP
+    volumes:
+      - ./config/mediamtx.yml:/mediamtx.yml
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # AI INFERENCE (NVIDIA Triton) - Optional GPU
+  # ============================================
+  
+  triton:
+    image: nvcr.io/nvidia/tritonserver:23.10-py3
+    container_name: verolux-triton
+    ports:
+      - "9800:8000"  # HTTP (remapped from 8000)
+      - "9801:8001"  # gRPC (remapped from 8001)
+      - "9802:8002"  # Metrics (remapped from 8002)
+    command: tritonserver --model-repository=/models --strict-model-config=false --log-verbose=1
+    volumes:
+      - ./triton-models:/models
+    networks:
+      - verolux-net
+    # Uncomment if you have NVIDIA GPU
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  # ============================================
+  # OBSERVABILITY - METRICS
+  # ============================================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: verolux-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: verolux-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: verolux-node-exporter
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: verolux-postgres-exporter
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://verolux:verolux123@postgres:5432/verolux?sslmode=disable
+    depends_on:
+      - postgres
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: verolux-redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=verolux123
+    depends_on:
+      - redis
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # OBSERVABILITY - DASHBOARDS
+  # ============================================
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: verolux-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=verolux123
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # OBSERVABILITY - LOGGING
+  # ============================================
+  
+  loki:
+    image: grafana/loki:latest
+    container_name: verolux-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+      - ./config/loki-config.yml:/etc/loki/local-config.yaml
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: verolux-promtail
+    ports:
+      - "9080:9080"
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./config/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # OBSERVABILITY - TRACING
+  # ============================================
+  
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: verolux-jaeger
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"    # UI
+      - "14268:14268"
+      - "14250:14250"
+      - "9411:9411"
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: verolux-otel
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+      - "8888:8888"  # Prometheus metrics
+    volumes:
+      - ./config/otel-collector.yml:/etc/otel/config.yaml
+    command: ["--config=/etc/otel/config.yaml"]
+    depends_on:
+      - jaeger
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # AUTHENTICATION & SECURITY
+  # ============================================
+  
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: verolux-keycloak
+    ports:
+      - "8080:8080"
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin123
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+      - KC_DB_USERNAME=verolux
+      - KC_DB_PASSWORD=verolux123
+      - KC_HOSTNAME=localhost
+      - KC_HTTP_ENABLED=true
+    command: start-dev
+    depends_on:
+      - postgres
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # TURN/STUN server for WebRTC
+  coturn:
+    image: coturn/coturn:latest
+    container_name: verolux-coturn
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "5349:5349/tcp"
+      - "5349:5349/udp"
+      - "49152-49172:49152-49172/udp"
+    volumes:
+      - ./config/turnserver.conf:/etc/turnserver.conf
+    command: -c /etc/turnserver.conf
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # Secrets management
+  vault:
+    image: vault:latest
+    container_name: verolux-vault
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=root
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - vault-data:/vault/file
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # DATA MANAGEMENT
+  # ============================================
+  
+  # Database backup service
+  backup:
+    image: prodrigestivill/postgres-backup-local:latest
+    container_name: verolux-backup
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=verolux
+      - POSTGRES_USER=verolux
+      - POSTGRES_PASSWORD=verolux123
+      - SCHEDULE=@daily
+      - BACKUP_KEEP_DAYS=7
+      - BACKUP_KEEP_WEEKS=4
+      - BACKUP_KEEP_MONTHS=6
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      - postgres
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # ============================================
+  # DATABASES & CACHE
+  # ============================================
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: verolux-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=verolux
+      - POSTGRES_PASSWORD=verolux123
+      - POSTGRES_DB=verolux
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - verolux-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verolux"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: verolux-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass verolux123
+    volumes:
+      - redis-data:/data
+    networks:
+      - verolux-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ============================================
+  # REVERSE PROXY & LOAD BALANCER
+  # ============================================
+  
+  nginx:
+    image: nginx:alpine
+    container_name: verolux-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx-production.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - backend
+      - grafana
+      - prometheus
+    networks:
+      - verolux-net
+    restart: unless-stopped
+
+  # Certificate automation
+  certbot:
+    image: certbot/certbot:latest
+    container_name: verolux-certbot
+    volumes:
+      - ./ssl:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - verolux-net
+
+networks:
+  verolux-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  qdrant-data:
+  minio-data:
+  minio-models:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:
+  loki-data:
+  vault-data:
+  certbot-webroot:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

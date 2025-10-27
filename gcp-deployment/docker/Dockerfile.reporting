@@ -1,0 +1,86 @@
+# Verolux Reporting System - Dockerfile
+# PDF/CSV reports, shift summaries, event exports
+FROM python:3.10-slim
+
+LABEL maintainer="Verolux Enterprise"
+LABEL description="Reporting system for PDF/CSV generation and shift summaries"
+
+# Set environment
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies including wkhtmltopdf for PDF generation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    curl \
+    ca-certificates \
+    wkhtmltopdf \
+    xvfb \
+    fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY Backend/requirements.txt .
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Install additional reporting libraries
+RUN pip3 install --no-cache-dir \
+    pandas \
+    openpyxl \
+    xlsxwriter \
+    reportlab \
+    weasyprint \
+    jinja2 \
+    google-cloud-storage \
+    google-cloud-sql-connector \
+    psycopg2-binary \
+    sqlalchemy
+
+# Copy application code
+COPY Backend/reporting_system.py .
+COPY Backend/gate_database.py .
+
+# Create necessary directories
+RUN mkdir -p /app/reports /app/templates /app/logs
+
+# Set permissions
+RUN chmod +x /app/*.py
+
+# Expose port
+EXPOSE 8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8001/health || exit 1
+
+# Start application
+CMD ["python3", "-m", "uvicorn", "reporting_system:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8001", \
+     "--workers", "1"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

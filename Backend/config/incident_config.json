@@ -1,0 +1,44 @@
+{
+  "incident_report": {
+    "enabled": true,
+    "auto_generate": true,
+    "screenshot_capture": true,
+    "pdf_generation": true,
+    "json_export": true,
+    "default_location": "Loading Dock - Kamera 2",
+    "default_officer": "Andi (Security Shift A)",
+    "severity_mapping": {
+      "high": {
+        "score_threshold": 0.0,
+        "description": "Security breach or unauthorized access"
+      },
+      "medium": {
+        "score_threshold": 0.7,
+        "description": "Suspicious activity or protocol violation"
+      },
+      "low": {
+        "score_threshold": 0.9,
+        "description": "Minor incident or routine check"
+      }
+    },
+    "violation_types": {
+      "intrusion": "Unauthorized entry into restricted area",
+      "security_breach": "Security protocol violation",
+      "unauthorized_access": "Access without proper authorization",
+      "suspicious_activity": "Unusual or suspicious behavior detected"
+    },
+    "report_formats": {
+      "pdf": true,
+      "json": true,
+      "csv": false
+    },
+    "screenshot_settings": {
+      "capture_on_completion": true,
+      "capture_on_violation": true,
+      "image_quality": 95,
+      "max_width": 1920,
+      "max_height": 1080
+    }
+  }
+}
+

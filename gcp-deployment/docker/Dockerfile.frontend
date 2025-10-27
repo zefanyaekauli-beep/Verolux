@@ -1,0 +1,88 @@
+# Verolux Frontend - Multi-stage Dockerfile
+# React 18 + Vite + Nginx with production optimization
+FROM node:18-alpine AS builder
+
+LABEL maintainer="Verolux Enterprise"
+LABEL description="React frontend with Nginx for production"
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY Frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production --silent
+
+# Copy source code
+COPY Frontend/ .
+
+# Build arguments for API URLs
+ARG VITE_API_URL=http://localhost:8000
+ARG VITE_WS_URL=ws://localhost:8000
+ARG VITE_ANALYTICS_URL=http://localhost:8002
+ARG VITE_REPORTING_URL=http://localhost:8001
+ARG VITE_SEMANTIC_URL=http://localhost:8003
+ARG VITE_INCIDENT_URL=http://localhost:8004
+ARG VITE_CONFIG_URL=http://localhost:8005
+
+# Set environment variables for build
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_WS_URL=${VITE_WS_URL}
+ENV VITE_ANALYTICS_URL=${VITE_ANALYTICS_URL}
+ENV VITE_REPORTING_URL=${VITE_REPORTING_URL}
+ENV VITE_SEMANTIC_URL=${VITE_SEMANTIC_URL}
+ENV VITE_INCIDENT_URL=${VITE_INCIDENT_URL}
+ENV VITE_CONFIG_URL=${VITE_CONFIG_URL}
+
+# Build for production
+RUN npm run build
+
+# Production stage with Nginx
+FROM nginx:alpine
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Remove default Nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy custom Nginx configuration
+COPY gcp-deployment/config/nginx.conf /etc/nginx/nginx.conf
+COPY gcp-deployment/config/default.conf /etc/nginx/conf.d/default.conf
+
+# Copy built files from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy video assets if they exist
+COPY Frontend/public/*.mp4 /usr/share/nginx/html/ 2>/dev/null || :
+
+# Set proper permissions
+RUN chmod -R 755 /usr/share/nginx/html
+
+# Expose ports
+EXPOSE 80 443
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost/ || exit 1
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

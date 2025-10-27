@@ -1,0 +1,70 @@
+# GPU Monitoring Extension for Verolux
+# Add this to your production stack for NVIDIA GPU metrics
+
+version: '3.8'
+
+services:
+  # ============================================
+  # NVIDIA DCGM Exporter - GPU Metrics
+  # ============================================
+  
+  dcgm-exporter:
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04
+    container_name: verolux-dcgm-exporter
+    ports:
+      - "9400:9400"
+    runtime: nvidia
+    environment:
+      - DCGM_EXPORTER_LISTEN=:9400
+      - DCGM_EXPORTER_KUBERNETES=false
+    cap_add:
+      - SYS_ADMIN
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - verolux-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9400/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Update Prometheus to scrape DCGM metrics
+  # Add this to your prometheus.yml:
+  #
+  # scrape_configs:
+  #   - job_name: 'dcgm'
+  #     static_configs:
+  #       - targets: ['dcgm-exporter:9400']
+  #         labels:
+  #           instance: 'verolux-gpu'
+
+networks:
+  verolux-net:
+    external: true
+
+# Usage:
+# 1. Ensure NVIDIA Container Runtime is installed
+# 2. Run: docker-compose -f docker-compose.production.yml -f docker-compose.gpu-metrics.yml up -d
+# 3. Access metrics at: http://localhost:9400/metrics
+# 4. View in Grafana with NVIDIA DCGM dashboard (ID: 12239)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

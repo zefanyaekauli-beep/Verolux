@@ -1,0 +1,13 @@
+{
+  "zone_id": "guard_anchor_A1",
+  "zone_type": "guard_anchor",
+  "polygon": [
+    [0.10, 0.15],
+    [0.25, 0.15],
+    [0.25, 0.85],
+    [0.10, 0.85]
+  ],
+  "description": "Guard anchor zone - where guard should stand during check",
+  "normalized": true
+}
+

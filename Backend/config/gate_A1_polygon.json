@@ -1,0 +1,13 @@
+{
+  "zone_id": "gate_A1",
+  "zone_type": "gate_area",
+  "polygon": [
+    [0.30, 0.20],
+    [0.70, 0.20],
+    [0.70, 0.80],
+    [0.30, 0.80]
+  ],
+  "description": "Main gate area where security check must occur",
+  "normalized": true
+}
+

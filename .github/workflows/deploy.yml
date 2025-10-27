@@ -1,0 +1,100 @@
+name: Deploy to Staging/Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  deploy-gcp:
+    name: Deploy to GCP
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build and push images
+        run: |
+          docker-compose -f docker-compose.gcp.yml build
+          docker-compose -f docker-compose.gcp.yml push
+
+      - name: Deploy to Compute Engine
+        run: |
+          gcloud compute instances update-container verolux-gpu-instance \
+            --zone=asia-southeast2-a \
+            --container-image=gcr.io/${{ secrets.GCP_PROJECT_ID }}/verolux-backend:latest
+
+      - name: Health check
+        run: |
+          sleep 30
+          ./gcp-deployment/scripts/health-check.sh
+
+  deploy-kubernetes:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    if: github.event.inputs.environment == 'production'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials verolux-cluster \
+            --zone=asia-southeast2-a \
+            --project=${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f gcp-deployment/kubernetes/verolux-complete.yaml
+          kubectl rollout status deployment/verolux-backend -n verolux
+          kubectl rollout status deployment/verolux-frontend -n verolux
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n verolux
+          kubectl get services -n verolux
+
+
+
+
+
+
+
+
+
+
+
+
+

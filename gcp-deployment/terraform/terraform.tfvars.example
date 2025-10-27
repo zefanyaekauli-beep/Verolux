@@ -1,0 +1,64 @@
+# Verolux Enterprise - Terraform Variables Example
+# Copy this file to terraform.tfvars and update with your values
+
+# GCP Project Configuration
+project_id  = "your-gcp-project-id"
+region      = "asia-southeast2"  # Jakarta, Indonesia
+zone        = "asia-southeast2-a"
+environment = "production"
+
+# Compute Instance Configuration
+instance_name = "verolux-gpu-instance"
+machine_type  = "g2-standard-8"   # 8 vCPU, 32 GB RAM
+gpu_type      = "nvidia-l4"       # L4 GPU (recommended for YOLO)
+gpu_count     = 1                 # Single GPU
+disk_size     = 100               # 100 GB SSD
+
+# Database Configuration
+db_tier               = "db-custom-2-7680"  # 2 vCPU, 7.5 GB RAM
+db_availability_type  = "ZONAL"             # Use REGIONAL for high availability
+db_deletion_protection = true
+
+# Network Security
+ssh_source_ranges = ["0.0.0.0/0"]  # Restrict to your IP in production
+
+# Monitoring (Optional - configure notification channels)
+notification_channels = []
+
+# Storage Configuration
+storage_retention_days = 90  # Keep videos for 90 days
+
+# Application Performance Settings
+batch_size       = 4    # YOLO batch inference size
+substream_scale  = 0.6  # Detection resolution scale (0.6 = 40% GPU load reduction)
+target_fps       = 30   # Target FPS for inference
+
+# Cost Optimization (Use for dev/test only)
+use_preemptible        = false  # Set to true for 60-91% cost savings (dev/test)
+auto_shutdown_enabled  = false  # Auto-shutdown during off-hours
+auto_shutdown_schedule = "0 20 * * *"  # 8 PM daily (if enabled)
+
+# Additional Tags and Labels
+tags = []
+labels = {
+  project     = "verolux"
+  managed_by  = "terraform"
+  cost_center = "operations"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

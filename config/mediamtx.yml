@@ -1,0 +1,97 @@
+###############################################
+# MediaMTX Configuration
+###############################################
+
+# RTSP server settings
+rtspAddress: :8554
+protocols: [tcp, udp]
+encryption: "no"
+rtspAddress: :8554
+
+# RTMP server settings
+rtmpAddress: :1935
+rtmpEncryption: "no"
+
+# HLS server settings
+hlsAddress: :8888
+hlsEncryption: no
+hlsServerKey: server.key
+hlsServerCert: server.crt
+hlsAlwaysRemux: no
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentMaxSize: 50M
+
+# WebRTC server settings
+webrtcAddress: :8889
+webrtcEncryption: no
+webrtcServerKey: server.key
+webrtcServerCert: server.crt
+webrtcAllowOrigin: '*'
+webrtcICEServers:
+  - urls: [stun:stun.l.google.com:19302]
+
+# Paths configuration
+paths:
+  # Allow all paths
+  all:
+    source: publisher
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 10s
+    sourceOnDemandCloseAfter: 10s
+
+  # Gate camera feeds
+  gate_a1:
+    source: publisher
+    
+  gate_a2:
+    source: publisher
+  
+  # Webcam relay
+  webcam_0:
+    source: publisher
+    runOnPublish: echo "Webcam stream started"
+    runOnPublishRestart: yes
+  
+  # RTSP camera example
+  # camera_1:
+  #   source: rtsp://admin:password@192.168.1.100:554/stream1
+  #   sourceProtocol: tcp
+  #   sourceOnDemand: yes
+  
+  # RTMP ingest example
+  # rtmp_ingest:
+  #   source: publisher
+  #   publishUser: verolux
+  #   publishPass: verolux123
+
+# Logging
+logLevel: info
+logDestinations: [stdout]
+logFile: /var/log/mediamtx.log
+
+# Metrics
+metrics: yes
+metricsAddress: :9998
+
+# Performance
+readTimeout: 10s
+writeTimeout: 10s
+readBufferCount: 512
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

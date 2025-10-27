@@ -1,0 +1,667 @@
+# Verolux Enterprise - Complete Kubernetes Deployment
+# All 7 services with full features for GKE
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: verolux
+  labels:
+    name: verolux
+    environment: production
+
+---
+# ConfigMap for shared configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verolux-config
+  namespace: verolux
+data:
+  GCP_REGION: "asia-southeast2"
+  TARGET_FPS: "30"
+  BATCH_SIZE: "4"
+  SUBSTREAM_SCALE: "0.6"
+  MAX_CAMERAS: "50"
+  SUPPORTED_LANGUAGES: "en,id,zh"
+  EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
+
+---
+# Secret for sensitive data (create manually or via sealed-secrets)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: verolux-secrets
+  namespace: verolux
+type: Opaque
+stringData:
+  db-password: "REPLACE_WITH_YOUR_DB_PASSWORD"
+  gcp-key.json: |
+    REPLACE_WITH_YOUR_GCP_SERVICE_ACCOUNT_KEY
+
+---
+# PersistentVolumeClaim for shared storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: verolux-storage
+  namespace: verolux
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: standard-rwo
+
+---
+# Deployment: Backend (GPU-enabled)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-backend
+  namespace: verolux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verolux-backend
+  template:
+    metadata:
+      labels:
+        app: verolux-backend
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-accelerator: nvidia-l4
+      containers:
+      - name: backend
+        image: gcr.io/YOUR_PROJECT_ID/verolux-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MODEL_PATH
+          value: "/app/models/weight.pt"
+        - name: DEVICE
+          value: "cuda"
+        - name: BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: verolux-config
+              key: BATCH_SIZE
+        - name: SUBSTREAM_SCALE
+          valueFrom:
+            configMapKeyRef:
+              name: verolux-config
+              key: SUBSTREAM_SCALE
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: verolux-secrets
+              key: db-password
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/secrets/gcp-key.json"
+        resources:
+          requests:
+            cpu: "4"
+            memory: "16Gi"
+            nvidia.com/gpu: 1
+          limits:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: 1
+        volumeMounts:
+        - name: gcp-key
+          mountPath: /secrets
+          readOnly: true
+        - name: storage
+          mountPath: /app/uploads
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: gcp-key
+        secret:
+          secretName: verolux-secrets
+          items:
+          - key: gcp-key.json
+            path: gcp-key.json
+      - name: storage
+        persistentVolumeClaim:
+          claimName: verolux-storage
+
+---
+# Deployment: Analytics
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-analytics
+  namespace: verolux
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: verolux-analytics
+  template:
+    metadata:
+      labels:
+        app: verolux-analytics
+    spec:
+      containers:
+      - name: analytics
+        image: gcr.io/YOUR_PROJECT_ID/verolux-analytics:latest
+        ports:
+        - containerPort: 8002
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: verolux-secrets
+              key: db-password
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/secrets/gcp-key.json"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        volumeMounts:
+        - name: gcp-key
+          mountPath: /secrets
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: gcp-key
+        secret:
+          secretName: verolux-secrets
+          items:
+          - key: gcp-key.json
+            path: gcp-key.json
+
+---
+# Deployment: Reporting
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-reporting
+  namespace: verolux
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: verolux-reporting
+  template:
+    metadata:
+      labels:
+        app: verolux-reporting
+    spec:
+      containers:
+      - name: reporting
+        image: gcr.io/YOUR_PROJECT_ID/verolux-reporting:latest
+        ports:
+        - containerPort: 8001
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: verolux-secrets
+              key: db-password
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/secrets/gcp-key.json"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        volumeMounts:
+        - name: gcp-key
+          mountPath: /secrets
+          readOnly: true
+        - name: storage
+          mountPath: /app/reports
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: gcp-key
+        secret:
+          secretName: verolux-secrets
+          items:
+          - key: gcp-key.json
+            path: gcp-key.json
+      - name: storage
+        persistentVolumeClaim:
+          claimName: verolux-storage
+
+---
+# Deployment: Semantic Search
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-semantic
+  namespace: verolux
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: verolux-semantic
+  template:
+    metadata:
+      labels:
+        app: verolux-semantic
+    spec:
+      containers:
+      - name: semantic
+        image: gcr.io/YOUR_PROJECT_ID/verolux-semantic:latest
+        ports:
+        - containerPort: 8003
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: verolux-secrets
+              key: db-password
+        - name: EMBEDDING_MODEL
+          valueFrom:
+            configMapKeyRef:
+              name: verolux-config
+              key: EMBEDDING_MODEL
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/secrets/gcp-key.json"
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+        volumeMounts:
+        - name: gcp-key
+          mountPath: /secrets
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 40
+          periodSeconds: 30
+      volumes:
+      - name: gcp-key
+        secret:
+          secretName: verolux-secrets
+          items:
+          - key: gcp-key.json
+            path: gcp-key.json
+
+---
+# Deployment: Incident Reports
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-incident
+  namespace: verolux
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: verolux-incident
+  template:
+    metadata:
+      labels:
+        app: verolux-incident
+    spec:
+      containers:
+      - name: incident
+        image: gcr.io/YOUR_PROJECT_ID/verolux-incident:latest
+        ports:
+        - containerPort: 8004
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: verolux-secrets
+              key: db-password
+        - name: SUPPORTED_LANGUAGES
+          valueFrom:
+            configMapKeyRef:
+              name: verolux-config
+              key: SUPPORTED_LANGUAGES
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/secrets/gcp-key.json"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        volumeMounts:
+        - name: gcp-key
+          mountPath: /secrets
+          readOnly: true
+        - name: storage
+          mountPath: /app/incident_reports
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: gcp-key
+        secret:
+          secretName: verolux-secrets
+          items:
+          - key: gcp-key.json
+            path: gcp-key.json
+      - name: storage
+        persistentVolumeClaim:
+          claimName: verolux-storage
+
+---
+# Deployment: Config API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-config
+  namespace: verolux
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: verolux-config
+  template:
+    metadata:
+      labels:
+        app: verolux-config
+    spec:
+      containers:
+      - name: config
+        image: gcr.io/YOUR_PROJECT_ID/verolux-config:latest
+        ports:
+        - containerPort: 8005
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: verolux-secrets
+              key: db-password
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/secrets/gcp-key.json"
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "2Gi"
+        volumeMounts:
+        - name: gcp-key
+          mountPath: /secrets
+          readOnly: true
+        - name: storage
+          mountPath: /app/config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8005
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: gcp-key
+        secret:
+          secretName: verolux-secrets
+          items:
+          - key: gcp-key.json
+            path: gcp-key.json
+      - name: storage
+        persistentVolumeClaim:
+          claimName: verolux-storage
+
+---
+# Deployment: Frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verolux-frontend
+  namespace: verolux
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: verolux-frontend
+  template:
+    metadata:
+      labels:
+        app: verolux-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: gcr.io/YOUR_PROJECT_ID/verolux-frontend:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /nginx-health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+
+---
+# Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: verolux
+spec:
+  selector:
+    app: verolux-backend
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics
+  namespace: verolux
+spec:
+  selector:
+    app: verolux-analytics
+  ports:
+  - protocol: TCP
+    port: 8002
+    targetPort: 8002
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reporting
+  namespace: verolux
+spec:
+  selector:
+    app: verolux-reporting
+  ports:
+  - protocol: TCP
+    port: 8001
+    targetPort: 8001
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: semantic
+  namespace: verolux
+spec:
+  selector:
+    app: verolux-semantic
+  ports:
+  - protocol: TCP
+    port: 8003
+    targetPort: 8003
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: incident
+  namespace: verolux
+spec:
+  selector:
+    app: verolux-incident
+  ports:
+  - protocol: TCP
+    port: 8004
+    targetPort: 8004
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: config
+  namespace: verolux
+spec:
+  selector:
+    app: verolux-config
+  ports:
+  - protocol: TCP
+    port: 8005
+    targetPort: 8005
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: verolux
+spec:
+  selector:
+    app: verolux-frontend
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: LoadBalancer
+
+---
+# Ingress with HTTPS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: verolux-ingress
+  namespace: verolux
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    networking.gke.io/managed-certificates: "verolux-cert"
+spec:
+  rules:
+  - host: verolux.yourdomain.com
+    http:
+      paths:
+      - path: /api/*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+      - path: /ws/*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - verolux.yourdomain.com
+    secretName: verolux-tls
+
+---
+# HorizontalPodAutoscaler for backend
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: verolux
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: verolux-backend
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: nvidia.com/gpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,389 @@
+/* Verolux1st Brand Guidelines Implementation */
+
+/* ===== FONT IMPORTS ===== */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ===== BRAND COLOR PALETTE ===== */
+:root {
+  /* Primary Colors */
+  --verolux-very-dark-blue: #002B4B;    /* Dominance of technology and trust */
+  --verolux-dark-blue: #00578A;          /* Secondary dark blue */
+  --verolux-medium-turquoise: #4CD4B0;  /* Innovation and growth */
+  --verolux-bright-gold: #FDD017;       /* Elegance and ambition */
+  
+  /* Neutral Colors */
+  --verolux-very-light-grey: #E0E0E0;
+  --verolux-white: #FFFFFF;
+  --verolux-black: #000000;
+  
+  /* Semantic Colors */
+  --verolux-primary: var(--verolux-black);
+  --verolux-secondary: var(--verolux-medium-turquoise);
+  --verolux-accent: var(--verolux-bright-gold);
+  --verolux-background: var(--verolux-black);
+  --verolux-surface: #111111;
+  --verolux-text-primary: var(--verolux-white);
+  --verolux-text-secondary: var(--verolux-very-light-grey);
+  --verolux-text-accent: var(--verolux-medium-turquoise);
+  
+  /* Status Colors */
+  --verolux-success: #10B981;
+  --verolux-warning: #F59E0B;
+  --verolux-error: #EF4444;
+  --verolux-info: var(--verolux-medium-turquoise);
+}
+
+/* ===== TYPOGRAPHY SYSTEM ===== */
+:root {
+  /* Font Family */
+  --verolux-font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Font Weights */
+  --verolux-font-light: 300;
+  --verolux-font-regular: 400;
+  --verolux-font-medium: 500;
+  --verolux-font-semibold: 600;
+  --verolux-font-bold: 700;
+  --verolux-font-extrabold: 800;
+  --verolux-font-black: 900;
+  
+  /* Font Sizes */
+  --verolux-text-xs: 0.75rem;      /* 12px */
+  --verolux-text-sm: 0.875rem;     /* 14px */
+  --verolux-text-base: 1rem;       /* 16px */
+  --verolux-text-lg: 1.125rem;     /* 18px */
+  --verolux-text-xl: 1.25rem;      /* 20px */
+  --verolux-text-2xl: 1.5rem;      /* 24px */
+  --verolux-text-3xl: 1.875rem;    /* 30px */
+  --verolux-text-4xl: 2.25rem;     /* 36px */
+  --verolux-text-5xl: 3rem;        /* 48px */
+  
+  /* Line Heights */
+  --verolux-leading-tight: 1.25;
+  --verolux-leading-snug: 1.375;
+  --verolux-leading-normal: 1.5;
+  --verolux-leading-relaxed: 1.625;
+  --verolux-leading-loose: 2;
+}
+
+/* ===== BASE STYLES ===== */
+* {
+  font-family: var(--verolux-font-family);
+}
+
+body {
+  background-color: var(--verolux-background);
+  color: var(--verolux-text-primary);
+  font-weight: var(--verolux-font-regular);
+  line-height: var(--verolux-leading-normal);
+}
+
+/* ===== TYPOGRAPHY CLASSES ===== */
+.verolux-heading-1 {
+  font-size: var(--verolux-text-5xl);
+  font-weight: var(--verolux-font-bold);
+  line-height: var(--verolux-leading-tight);
+  color: var(--verolux-text-primary);
+}
+
+.verolux-heading-2 {
+  font-size: var(--verolux-text-4xl);
+  font-weight: var(--verolux-font-bold);
+  line-height: var(--verolux-leading-tight);
+  color: var(--verolux-text-primary);
+}
+
+.verolux-heading-3 {
+  font-size: var(--verolux-text-3xl);
+  font-weight: var(--verolux-font-semibold);
+  line-height: var(--verolux-leading-snug);
+  color: var(--verolux-text-primary);
+}
+
+.verolux-heading-4 {
+  font-size: var(--verolux-text-2xl);
+  font-weight: var(--verolux-font-semibold);
+  line-height: var(--verolux-leading-snug);
+  color: var(--verolux-text-primary);
+}
+
+.verolux-subheading {
+  font-size: var(--verolux-text-lg);
+  font-weight: var(--verolux-font-medium);
+  line-height: var(--verolux-leading-normal);
+  color: var(--verolux-text-accent);
+}
+
+.verolux-body {
+  font-size: var(--verolux-text-base);
+  font-weight: var(--verolux-font-regular);
+  line-height: var(--verolux-leading-normal);
+  color: var(--verolux-text-primary);
+}
+
+.verolux-body-secondary {
+  font-size: var(--verolux-text-base);
+  font-weight: var(--verolux-font-regular);
+  line-height: var(--verolux-leading-normal);
+  color: var(--verolux-text-secondary);
+}
+
+.verolux-caption {
+  font-size: var(--verolux-text-sm);
+  font-weight: var(--verolux-font-regular);
+  line-height: var(--verolux-leading-normal);
+  color: var(--verolux-text-secondary);
+}
+
+.verolux-highlight {
+  font-size: var(--verolux-text-base);
+  font-weight: var(--verolux-font-bold);
+  font-style: italic;
+  color: var(--verolux-text-accent);
+}
+
+/* ===== COMPONENT STYLES ===== */
+
+/* Cards */
+.verolux-card {
+  background: linear-gradient(135deg, #111111 0%, #222222 100%);
+  border: 1px solid rgba(76, 212, 176, 0.2);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.verolux-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+  border-color: rgba(76, 212, 176, 0.4);
+}
+
+/* Buttons */
+.verolux-btn {
+  font-family: var(--verolux-font-family);
+  font-weight: var(--verolux-font-semibold);
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.verolux-btn-primary {
+  background: linear-gradient(135deg, var(--verolux-secondary) 0%, #3BC4A0 100%);
+  color: var(--verolux-white);
+  box-shadow: 0 4px 15px rgba(76, 212, 176, 0.3);
+}
+
+.verolux-btn-primary:hover {
+  background: linear-gradient(135deg, #3BC4A0 0%, var(--verolux-secondary) 100%);
+  box-shadow: 0 6px 20px rgba(76, 212, 176, 0.4);
+  transform: translateY(-1px);
+}
+
+.verolux-btn-secondary {
+  background: linear-gradient(135deg, var(--verolux-accent) 0%, #E6B800 100%);
+  color: var(--verolux-very-dark-blue);
+  box-shadow: 0 4px 15px rgba(253, 208, 23, 0.3);
+}
+
+.verolux-btn-secondary:hover {
+  background: linear-gradient(135deg, #E6B800 0%, var(--verolux-accent) 100%);
+  box-shadow: 0 6px 20px rgba(253, 208, 23, 0.4);
+  transform: translateY(-1px);
+}
+
+.verolux-btn-outline {
+  background: transparent;
+  color: var(--verolux-text-accent);
+  border: 2px solid var(--verolux-secondary);
+}
+
+.verolux-btn-outline:hover {
+  background: var(--verolux-secondary);
+  color: var(--verolux-white);
+}
+
+/* Input Fields */
+.verolux-input {
+  background: rgba(17, 17, 17, 0.8);
+  border: 1px solid rgba(76, 212, 176, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: var(--verolux-text-primary);
+  font-family: var(--verolux-font-family);
+  font-size: var(--verolux-text-base);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.verolux-input:focus {
+  outline: none;
+  border-color: var(--verolux-secondary);
+  box-shadow: 0 0 0 3px rgba(76, 212, 176, 0.2);
+  background: rgba(17, 17, 17, 1);
+}
+
+.verolux-input::placeholder {
+  color: var(--verolux-text-secondary);
+}
+
+/* Badges */
+.verolux-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: var(--verolux-text-sm);
+  font-weight: var(--verolux-font-medium);
+  gap: 0.25rem;
+}
+
+.verolux-badge-primary {
+  background: rgba(76, 212, 176, 0.2);
+  color: var(--verolux-secondary);
+  border: 1px solid rgba(76, 212, 176, 0.3);
+}
+
+.verolux-badge-success {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.verolux-badge-warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.verolux-badge-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Progress Bars */
+.verolux-progress {
+  background: rgba(17, 17, 17, 0.8);
+  border-radius: 10px;
+  height: 8px;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.verolux-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--verolux-secondary) 0%, var(--verolux-accent) 100%);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+/* Geometric Patterns */
+.verolux-pattern {
+  position: relative;
+  overflow: hidden;
+}
+
+.verolux-pattern::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 20%, rgba(76, 212, 176, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(253, 208, 23, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 40% 60%, rgba(0, 87, 138, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Status Indicators */
+.verolux-status-online {
+  color: var(--verolux-success);
+}
+
+.verolux-status-warning {
+  color: var(--verolux-warning);
+}
+
+.verolux-status-error {
+  color: var(--verolux-error);
+}
+
+.verolux-status-info {
+  color: var(--verolux-info);
+}
+
+/* Animations */
+@keyframes verolux-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes verolux-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(76, 212, 176, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(76, 212, 176, 0.6);
+  }
+}
+
+.verolux-animate-pulse {
+  animation: verolux-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.verolux-animate-glow {
+  animation: verolux-glow 2s ease-in-out infinite;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .verolux-heading-1 {
+    font-size: var(--verolux-text-4xl);
+  }
+  
+  .verolux-heading-2 {
+    font-size: var(--verolux-text-3xl);
+  }
+  
+  .verolux-card {
+    padding: 1rem;
+  }
+  
+  .verolux-btn {
+    padding: 0.625rem 1.25rem;
+    font-size: var(--verolux-text-sm);
+  }
+}
+
+/* Dark mode optimizations */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --verolux-text-secondary: rgba(224, 224, 224, 0.8);
+  }
+}
+
+/* Print styles */
+@media print {
+  .verolux-card {
+    background: white;
+    color: black;
+    border: 1px solid #ccc;
+    box-shadow: none;
+  }
+}
+

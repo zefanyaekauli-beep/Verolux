@@ -1,0 +1,147 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'verolux-prod'
+    environment: 'production'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+rule_files:
+  - '/etc/prometheus/alerts/*.yml'
+
+scrape_configs:
+  # Application services
+  - job_name: 'backend'
+    static_configs:
+      - targets: ['backend:8000']
+        labels:
+          service: 'backend'
+          app: 'verolux'
+  
+  - job_name: 'analytics'
+    static_configs:
+      - targets: ['analytics:8002']
+        labels:
+          service: 'analytics'
+          app: 'verolux'
+  
+  - job_name: 'reporting'
+    static_configs:
+      - targets: ['reporting:8001']
+        labels:
+          service: 'reporting'
+          app: 'verolux'
+  
+  - job_name: 'semantic'
+    static_configs:
+      - targets: ['semantic:8003']
+        labels:
+          service: 'semantic'
+          app: 'verolux'
+  
+  - job_name: 'incident'
+    static_configs:
+      - targets: ['incident:8004']
+        labels:
+          service: 'incident'
+          app: 'verolux'
+  
+  - job_name: 'config-api'
+    static_configs:
+      - targets: ['config-api:8005']
+        labels:
+          service: 'config'
+          app: 'verolux'
+  
+  # Infrastructure monitoring
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'node'
+          type: 'infrastructure'
+  
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          service: 'postgres'
+          type: 'database'
+  
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: 'redis'
+          type: 'cache'
+  
+  # AI/GPU monitoring
+  - job_name: 'triton'
+    static_configs:
+      - targets: ['triton:9802']
+        labels:
+          service: 'triton'
+          type: 'inference'
+  
+  - job_name: 'dcgm'
+    static_configs:
+      - targets: ['dcgm-exporter:9400']
+        labels:
+          service: 'dcgm'
+          type: 'gpu'
+          instance: 'verolux-gpu'
+  
+  # Message broker
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+        labels:
+          service: 'rabbitmq'
+          type: 'broker'
+  
+  # Vector DB
+  - job_name: 'qdrant'
+    static_configs:
+      - targets: ['qdrant:6333']
+        labels:
+          service: 'qdrant'
+          type: 'vector-db'
+  
+  # Object storage
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+        labels:
+          service: 'minio'
+          type: 'storage'
+  
+  # Media server
+  - job_name: 'mediamtx'
+    static_configs:
+      - targets: ['mediamtx:9998']
+        labels:
+          service: 'mediamtx'
+          type: 'media'
+  
+  # Self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+  
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+  
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['jaeger:14269']
+
+

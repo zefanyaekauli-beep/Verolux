@@ -1,0 +1,26 @@
+[core]
+    remote = storage
+    autostage = true
+
+[remote "storage"]
+    url = s3://verolux-ml-data/dvc-storage
+    # Or use GCS: url = gs://verolux-ml-data/dvc-storage
+    # Or use Azure: url = azure://verolux-ml-data/dvc-storage
+
+[remote "local"]
+    url = ./dvc-storage
+
+# Use local for development, cloud for production
+
+
+
+
+
+
+
+
+
+
+
+
+

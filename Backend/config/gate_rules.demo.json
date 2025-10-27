@@ -1,0 +1,54 @@
+{
+  "gate_id": "A1",
+  "zones": {
+    "gate_area": "gate_A1_polygon.json",
+    "guard_anchor": "guard_anchor_A1_polygon.json"
+  },
+  "classes": {
+    "person": [0],
+    "guard_hint_classes": [0]
+  },
+  "timers": {
+    "person_min_dwell_s": 6.0,
+    "guard_min_dwell_s": 3.0,
+    "interaction_min_overlap_s": 1.2,
+    "occlusion_grace_s": 1.0,
+    "contact_debounce_s": 0.4,
+    "session_timeout_s": 8.0
+  },
+  "proximity": {
+    "center_dist_scale": 0.35,
+    "iou_min": 0.03,
+    "hands_toward_torso_margin": 0.12
+  },
+  "pose": {
+    "use_pose": true,
+    "hand_to_torso_thresh": 0.28,
+    "reach_velocity_thresh": 0.6
+  },
+  "guard_anchor_logic": {
+    "mode": "either",
+    "anchor_required_fraction": 0.6
+  },
+  "scoring": {
+    "base": 0.6,
+    "contact_bonus": 0.2,
+    "pose_bonus": 0.15,
+    "reid_persistence_bonus": 0.05,
+    "threshold": 0.9
+  },
+  "visualization": {
+    "save_snapshots": true,
+    "snapshot_dir": "snapshots",
+    "draw_zones": true,
+    "draw_tracks": true
+  },
+  "noise_filtering": {
+    "min_box_height_px": 40,
+    "jitter_smooth_window": 5,
+    "multi_frame_consensus": 3,
+    "reid_merge_time_s": 0.8,
+    "reid_merge_distance_m": 0.5
+  }
+}
+

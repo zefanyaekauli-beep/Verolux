@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import BodyCheckingAlert from '../components/BodyCheckingAlert'
 import TestAlert from '../components/TestAlert'
 import Toast from '../components/Toast'
+import useAuth from '../stores/auth'
 
 const SimpleInference = () => {
   const [status, setStatus] = useState('connecting')
@@ -17,18 +18,96 @@ const SimpleInference = () => {
   const [bodyCheckingAlert, setBodyCheckingAlert] = useState(null)
   const [toast, setToast] = useState(null)
   const [monitoringStatus, setMonitoringStatus] = useState(null)
+  const [counts, setCounts] = useState({
+    total_detected: 0,
+    gate_entries: 0,
+    gate_exits: 0,
+    anchor_entries: 0,
+    anchor_exits: 0,
+    current_in_gate: 0,
+    current_in_anchor: 0,
+    total_passed_through: 0
+  })
   
+  const { getAuthHeaders } = useAuth()
+
+  // Determine backend base URL (supports LAN/IP access)
+  const getApiBase = () => {
+    const hostname = window.location.hostname
+    return (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1')
+      ? `http://${hostname}:8002`
+      : 'http://127.0.0.1:8002'
+  }
   const wsRef = useRef(null)
   const fpsRef = useRef(0)
   const lastTimeRef = useRef(Date.now())
+
+  const [videoSource, setVideoSource] = useState('file:videoplayback.mp4')
+
+  const switchVideoSource = async (newSource) => {
+    try {
+      const response = await fetch(`${getApiBase()}/video/source`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ source: newSource })
+      })
+      const result = await response.json()
+      if (result.status === 'updated') {
+        setVideoSource(newSource)
+        // force reload of <img>
+        setTimeout(() => {
+          const img = document.querySelector('img[alt="Video Stream"]')
+          if (img) {
+            img.src = `${getApiBase()}/stream?source=${encodeURIComponent(newSource)}&token=${encodeURIComponent(localStorage.getItem('token') || '')}`
+          }
+        }, 200)
+      }
+    } catch (e) {
+      console.error('Error switching video source:', e)
+    }
+  }
+
+  // Ensure token exists (auto-login viewer if missing)
+  const ensureToken = async () => {
+    let token = localStorage.getItem('token')
+    if (!token) {
+      try {
+        const r = await fetch(`${getApiBase()}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'viewer', password: 'viewer' })
+        })
+        if (r.ok) {
+          const j = await r.json()
+          if (j?.access_token) {
+            localStorage.setItem('token', j.access_token)
+            return j.access_token
+          }
+        }
+      } catch (e) {
+        console.error('Auto-login failed:', e)
+      }
+    }
+    return token
+  }
 
   useEffect(() => {
     let closed = false
     
     const connectWebSocket = () => {
       try {
-        // Use 127.0.0.1 instead of localhost for better compatibility
-        const ws = new WebSocket('ws://127.0.0.1:8002/ws')
+        const token = localStorage.getItem('token')
+        if (!token) {
+          console.warn('No auth token found. Please login first.')
+        }
+        const wsHost = (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+          ? window.location.hostname
+          : '127.0.0.1'
+        const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
+        const ws = new WebSocket(`${scheme}://${wsHost}:8002/ws?token=${token || ''}`)
         wsRef.current = ws
         
         ws.onopen = () => {
@@ -39,21 +118,20 @@ const SimpleInference = () => {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data)
-            console.log('WebSocket message received:', data.type)
             
             if (data.type === 'hello') {
-              console.log('WebSocket hello received:', data.message)
               return
             }
             
             if (data.type === 'detection') {
               setDetections(data.detections || [])
               setGateConfig(data.gate_config || gateConfig)
+              if (data.object_counts) {
+                setCounts(data.object_counts)
+              }
               
               // Handle body checking alert
               if (data.body_checking_alert) {
-                console.log('Body checking alert received:', data.body_checking_alert)
-                console.log('Alert active:', data.body_checking_alert.active, 'People count:', data.body_checking_alert.people_count)
                 if (data.body_checking_alert.active) {
                   setBodyCheckingAlert(data.body_checking_alert)
                   setMonitoringStatus(null)
@@ -101,7 +179,8 @@ const SimpleInference = () => {
       }
     }
     
-    connectWebSocket()
+    // Make sure we have a token before connecting
+    ensureToken().then(() => connectWebSocket())
     
     return () => {
       closed = true
@@ -113,12 +192,44 @@ const SimpleInference = () => {
     }
   }, [])
 
+  // Load initial video source
+  useEffect(() => {
+    const loadInitialVideoSource = async () => {
+      try {
+        const r = await fetch(`${getApiBase()}/video/source`, { headers: { ...getAuthHeaders() } })
+        const j = await r.json()
+        if (j && j.source) setVideoSource(j.source)
+      } catch {}
+    }
+    loadInitialVideoSource()
+  }, [getAuthHeaders])
+
+  // Poll counts endpoint as a fallback/source of truth
+  useEffect(() => {
+    let stop = false
+    const tick = async () => {
+      try {
+        const r = await fetch(`${getApiBase()}/counts`, { headers: { ...getAuthHeaders() } })
+        if (r.ok) {
+          const j = await r.json()
+          if (j && j.counts) setCounts(j.counts)
+        }
+      } catch (e) {
+        // ignore
+      }
+      if (!stop) setTimeout(tick, 2000)
+    }
+    tick()
+    return () => { stop = true }
+  }, [getAuthHeaders])
+
   const updateGateConfig = async (newConfig) => {
     try {
-      const response = await fetch('http://127.0.0.1:8002/config/gate', {
+      const response = await fetch(`${getApiBase()}/config/gate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeaders()
         },
         body: JSON.stringify(newConfig)
       })
@@ -194,6 +305,28 @@ const SimpleInference = () => {
               <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium">
                 📊 {fps} FPS
               </div>
+
+              {/* Source Switcher */}
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  onClick={() => switchVideoSource('webcam:0')}
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    videoSource === 'webcam:0' ? 'bg-blue-500/20 text-blue-300' : 'bg-white/10 text-gray-300'
+                  }`}
+                  title="Use local webcam"
+                >
+                  📷 Webcam
+                </button>
+                <button
+                  onClick={() => switchVideoSource('file:videoplayback.mp4')}
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    videoSource === 'file:videoplayback.mp4' ? 'bg-blue-500/20 text-blue-300' : 'bg-white/10 text-gray-300'
+                  }`}
+                  title="Use demo video file"
+                >
+                  🎬 File
+                </button>
+              </div>
               
               {/* Monitoring Status */}
               {monitoringStatus && (
@@ -229,12 +362,17 @@ const SimpleInference = () => {
               className="bg-black rounded-xl overflow-hidden shadow-2xl"
             >
                  <div className="relative">
-                   <img
-                     src="http://127.0.0.1:8002/stream?source=file%3Avideoplayback.mp4"
-                     alt="Video Stream"
-                     className="w-full h-auto max-h-[800px] object-contain"
-                     style={{ minHeight: '600px' }}
-                   />
+                  <img
+                    key={videoSource}
+                    src={`${getApiBase()}/stream?source=${encodeURIComponent(videoSource)}&token=${encodeURIComponent(localStorage.getItem('token') || '')}`}
+                    alt="Video Stream"
+                    className="w-full h-auto max-h-[800px] object-contain"
+                    style={{ minHeight: '600px' }}
+                    onError={(e) => {
+                      console.error('Stream error')
+                      e.target.style.display = 'none'
+                    }}
+                  />
                 
                 {/* Gate Overlay */}
                 {showGateBoxes && gateConfig.enabled && (
@@ -296,12 +434,55 @@ const SimpleInference = () => {
                   <span className="text-blue-400 font-bold">{fps}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-gray-300">People in Gate (Crowd):</span>
+                  <span className="text-white font-bold">{counts.current_in_gate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Passed Through (Gate):</span>
+                  <span className="text-green-400 font-bold">{counts.total_passed_through}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Gate Entries / Exits:</span>
+                  <span className="text-white font-bold">{counts.gate_entries} / {counts.gate_exits}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Anchor In / Out:</span>
+                  <span className="text-white font-bold">{counts.anchor_entries} / {counts.anchor_exits}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-300">Status:</span>
                   <span className={`font-bold ${
                     status === 'connected' ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {status}
                   </span>
+                </div>
+                <div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const r = await fetch(`${getApiBase()}/counts/reset`, { 
+                          method: 'POST', 
+                          headers: { 
+                            'Content-Type': 'application/json', 
+                            ...getAuthHeaders() 
+                          } 
+                        })
+                        const j = await r.json()
+                        if (j && j.status === 'reset' && j.counts) {
+                          setCounts(j.counts)
+                          showToast('Counters reset', 'success')
+                        } else {
+                          showToast('Failed to reset counters', 'error')
+                        }
+                      } catch (e) {
+                        showToast('Error resetting counters', 'error')
+                      }
+                    }}
+                    className="w-full py-2 px-4 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg font-medium transition-all"
+                  >
+                    ♻️ Reset Counters
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -506,9 +687,12 @@ const SimpleInference = () => {
                   <button
                     onClick={async () => {
                       try {
-                        const response = await fetch('http://127.0.0.1:8002/config/gate/save', {
+                        const response = await fetch(`${getApiBase()}/config/gate/save`, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' }
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            ...getAuthHeaders()
+                          }
                         })
                         const result = await response.json()
                         if (result.status === 'saved') {
@@ -528,7 +712,9 @@ const SimpleInference = () => {
                   <button
                     onClick={async () => {
                       try {
-                        const response = await fetch('http://127.0.0.1:8002/config/gate/load')
+                        const response = await fetch(`${getApiBase()}/config/gate/load`, { 
+                          headers: { ...getAuthHeaders() } 
+                        })
                         const result = await response.json()
                         if (result.status === 'loaded') {
                           setGateConfig(result.config)

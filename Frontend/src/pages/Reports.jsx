@@ -38,6 +38,37 @@ const Reports = () => {
   const [sortBy, setSortBy] = useState('timestamp');
   const [sortOrder, setSortOrder] = useState('desc');
 
+  // Live counts history (advanced object/crowd analytics)
+  const [countsHistory, setCountsHistory] = useState([]); // [{ts, current_in_gate, gate_entries, gate_exits, total_passed_through, anchor_entries, anchor_exits}]
+  useEffect(() => {
+    let stop = false;
+    const poll = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const r = await fetch('http://127.0.0.1:8002/counts', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (r.ok) {
+          const j = await r.json();
+          if (j && j.counts) {
+            const now = new Date();
+            setCountsHistory(prev => {
+              const next = [...prev, { ts: now, ...j.counts }];
+              // keep last 10 minutes at 2s polling (~300 points)
+              return next.slice(-300);
+            });
+          }
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        if (!stop) setTimeout(poll, 2000);
+      }
+    };
+    poll();
+    return () => { stop = true };
+  }, []);
+
   // Comprehensive sample data for all advanced reports
   const sampleData = {
     // Enhanced Object & Activity Reports
@@ -842,6 +873,56 @@ const Reports = () => {
 
   const renderObjectCounts = () => (
     <div className="space-y-4">
+      {/* Live Object/Crowd Analytics */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white p-4 rounded-lg shadow-lg"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold">Live Crowd & Pass-through</h3>
+          <div className="flex gap-2">
+            <div className="px-3 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm">
+              Crowd: {countsHistory[countsHistory.length-1]?.current_in_gate ?? 0}
+            </div>
+            <div className="px-3 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-sm">
+              Passed: {countsHistory[countsHistory.length-1]?.total_passed_through ?? 0}
+            </div>
+            <button
+              onClick={async ()=>{
+                try{
+                  const token = localStorage.getItem('token');
+                  const r = await fetch('http://127.0.0.1:8002/counts/reset', { method:'POST', headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) } })
+                  const j = await r.json();
+                  if (j?.status==='reset') setCountsHistory([]);
+                }catch{}
+              }}
+              className="px-3 py-1 rounded bg-red-50 text-red-700 border border-red-200 text-sm hover:bg-red-100"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={countsHistory.map(d=>({
+            time: d.ts.toLocaleTimeString(),
+            crowd: d.current_in_gate,
+            passed: d.total_passed_through,
+            entries: d.gate_entries,
+            exits: d.gate_exits
+          }))}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="time" minTickGap={32} />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="crowd" stroke="#10b981" name="Crowd in Gate" dot={false} />
+            <Line type="monotone" dataKey="passed" stroke="#3b82f6" name="Passed Through (cum)" dot={false} />
+            <Line type="monotone" dataKey="entries" stroke="#22c55e" name="Gate Entries (cum)" dot={false} />
+            <Line type="monotone" dataKey="exits" stroke="#ef4444" name="Gate Exits (cum)" dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </motion.div>
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

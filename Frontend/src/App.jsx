@@ -9,15 +9,25 @@ const TopBar = lazy(() => import('./components/TopBar'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Cameras = lazy(() => import('./pages/Cameras'))
 const SemanticSearch = lazy(() => import('./pages/SemanticSearch'))
+const Search = lazy(() => import('./pages/Search'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Reports = lazy(() => import('./pages/Reports'))
 const Heatmap = lazy(() => import('./pages/Heatmap'))
 const Settings = lazy(() => import('./pages/Settings'))
+const VideoWall = lazy(() => import('./pages/VideoWall'))
+const AlertsCenter = lazy(() => import('./pages/AlertsCenter'))
+const CameraHealth = lazy(() => import('./pages/CameraHealth'))
+const Executive = lazy(() => import('./pages/Executive'))
+const Operations = lazy(() => import('./pages/Operations'))
+const SearchTimeline = lazy(() => import('./pages/SearchTimeline'))
+const Annotations = lazy(() => import('./pages/Annotations'))
 const GateConfigEditor = lazy(() => import('./components/GateConfigEditor'))
 const GateSecurity = lazy(() => import('./pages/GateSecurity'))
 const DiagnosticPage = lazy(() => import('./pages/DiagnosticPage'))
 const VideoplaybackDemo = lazy(() => import('./pages/VideoplaybackDemo'))
 const SimpleInference = lazy(() => import('./pages/SimpleInference'))
+const AdvancedBodyChecking = lazy(() => import('./pages/AdvancedBodyChecking'))
+const Inference = lazy(() => import('./pages/Inference'))
 
 const LoadingSpinner = () => (
   <div style={{
@@ -52,7 +62,9 @@ const Router = ({ page }) => {
   switch(page){
     case 'Dashboard': return <Dashboard/>
     case 'Cameras': return <Cameras/>
-    case 'SemanticSearch': return <SemanticSearch/>
+    case 'SemanticSearch': return <Search/>
+    case 'SearchTimeline': return <Search/>
+    case 'Search': return <Search/>
     case 'Analytics': return <Analytics/>
     case 'Reports': 
     case 'Overview': 
@@ -68,12 +80,21 @@ const Router = ({ page }) => {
     case 'Hazards': 
     case 'Anomaly Detection': return <Reports/>
     case 'Heatmap': return <Heatmap/>
+    case 'VideoWall': return <VideoWall/>
+    case 'AlertsCenter': return <AlertsCenter/>
+    case 'CameraHealth': return <CameraHealth/>
+    case 'Executive': return <Executive/>
+    case 'Operations': return <Operations/>
+    case 'SearchTimeline': return <SearchTimeline/>
+    case 'Annotations': return <Annotations/>
     case 'Settings': return <Settings/>
     case 'GateConfig': return <GateSecurity/>
     case 'GateConfigEditor': return <GateConfigEditor/>
     case 'Diagnostic': return <DiagnosticPage/>
-    case 'VideoplaybackDemo': return <VideoplaybackDemo/>
-    case 'SimpleInference': return <SimpleInference/>
+    case 'VideoplaybackDemo': return <Inference/>
+    case 'SimpleInference': return <Inference/>
+    case 'AdvancedBodyChecking': return <Inference/>
+    case 'Inference': return <Inference/>
     default: return <Dashboard/>
   }
 }
@@ -257,6 +278,11 @@ export default function App(){
             </div>
           )}
         </div>
+      </div>
+    </ErrorBoundary>
+  )
+}
+
       </div>
     </ErrorBoundary>
   )

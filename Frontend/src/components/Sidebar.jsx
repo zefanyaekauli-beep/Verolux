@@ -6,7 +6,8 @@ import useLang from '../stores/lang'
 const items = [
   { name: 'dashboard', icon: '🏠', page: 'Dashboard' },
   { name: 'cameras', icon: '📹', page: 'Cameras' },
-  { name: 'semanticSearch', icon: '🧠', page: 'SemanticSearch' },
+  { name: 'search', icon: '🔎', page: 'Search' },
+  { name: 'videoWall', icon: '🧱', page: 'VideoWall' },
   { name: 'analytics', icon: '📊', page: 'Analytics' },
   { 
     name: 'reports', 
@@ -30,8 +31,12 @@ const items = [
   },
   { name: 'heatmap', icon: '🗺️', page: 'Heatmap' },
   { name: 'gateConfig', icon: '🚪', page: 'GateConfig' },
-  { name: 'videoplaybackDemo', icon: '🎬', page: 'VideoplaybackDemo' },
-  { name: 'simpleInference', icon: '🎯', page: 'SimpleInference' },
+  { name: 'alertsCenter', icon: '🚨', page: 'AlertsCenter' },
+  { name: 'cameraHealth', icon: '🩺', page: 'CameraHealth' },
+  { name: 'executive', icon: '🏢', page: 'Executive' },
+  { name: 'operations', icon: '🏭', page: 'Operations' },
+  { name: 'annotations', icon: '📝', page: 'Annotations' },
+  { name: 'inference', icon: '🎯', page: 'Inference' },
   { name: 'settings', icon: '⚙️', page: 'Settings' }
 ]
 
@@ -41,6 +46,7 @@ export default function Sidebar(){
   const { user, login, logout } = useAuth()
   const { t } = useLang()
   const [openDropdowns, setOpenDropdowns] = useState({})
+  const cap = (s) => (s && typeof s === 'string') ? s.charAt(0).toUpperCase() + s.slice(1) : s
   
   const toggleDropdown = (itemName) => {
     setOpenDropdowns(prev => ({
@@ -240,7 +246,7 @@ export default function Sidebar(){
                 <span style={{ marginRight: '12px', fontSize: '16px' }}>
                   {item.icon}
                 </span>
-                {t(item.name)}
+                {cap(t(item.name) || item.name)}
               </div>
               {item.hasSubmenu && (
                 <span style={{ 
@@ -305,7 +311,7 @@ export default function Sidebar(){
                     <span style={{ marginRight: '8px', fontSize: '14px' }}>
                       {subItem.icon}
                     </span>
-                    {t(subItem.name)}
+                    {cap(t(subItem.name) || subItem.name)}
                   </button>
                 ))}
               </div>

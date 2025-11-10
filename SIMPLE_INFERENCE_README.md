@@ -215,3 +215,9 @@ Your Simple Video Inference System is now running with:
 
 Enjoy your AI-powered video analysis system! 🚀
 
+
+
+
+
+
+

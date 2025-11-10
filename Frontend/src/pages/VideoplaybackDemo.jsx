@@ -443,7 +443,7 @@ export default function VideoplaybackDemo() {
       duration: Math.floor((new Date() - reportData.startTime) / 1000),
       totalDetections: systemStats.totalDetections,
       totalAlerts: alerts.length,
-      gateEvents: gateEvents.length,
+      gateEventsCount: gateEvents.length,
       systemStats: {
         avgFps: systemStats.fps,
         avgProcessingTime: systemStats.processingTime,

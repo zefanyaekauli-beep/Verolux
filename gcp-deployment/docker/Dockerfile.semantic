@@ -88,3 +88,4 @@ CMD ["python3", "-m", "uvicorn", "semantic_search:app", \
 
 
 
+

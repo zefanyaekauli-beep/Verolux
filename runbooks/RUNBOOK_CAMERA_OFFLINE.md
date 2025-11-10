@@ -261,3 +261,4 @@ watch -n 10 'curl -s http://localhost:8000/health/cameras | jq .cameras.gate_a1.
 
 
 
+
